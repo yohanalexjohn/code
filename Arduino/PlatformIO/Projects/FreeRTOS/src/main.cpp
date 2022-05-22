@@ -8,9 +8,6 @@
 #define offetVoltage 500
 #define temp A0
 
-void getTempValue(void *pvParameters);
-void ledColourChange(void *pvParameters);
-
 typedef struct readRawData
 {
   int pin;
@@ -19,6 +16,10 @@ typedef struct readRawData
 
 QueueHandle_t structQueue;
 
+// Function Declaration 
+void getTempValue(void *pvParameters);    // Task to get the tempeature value from the thermistor 
+void ledColourChange(void *pvParameters); // Task to toggle the Led 
+
 void setup()
 {
   Serial.begin(9600);
@@ -26,6 +27,7 @@ void setup()
   pinMode(BLUE_PIN, OUTPUT);
   pinMode(temp, INPUT);
 
+// Setup the tasks
   structQueue = xQueueCreate(10,
                              sizeof(rawData));
 
@@ -49,6 +51,7 @@ void setup()
 }
 void loop() {}
 
+// Task 1 : Get the Raw temperature value from the thermistor 
 void getTempValue(void *pvParameters)
 {
   (void)pvParameters;
@@ -57,12 +60,13 @@ void getTempValue(void *pvParameters)
   {
     rawData tempSensor;
     tempSensor.pin = temp;
-    tempSensor.data = analogRead(temp);
-    xQueueSend(structQueue, &tempSensor, portMAX_DELAY);
+    tempSensor.data = analogRead(temp); // read the raw data from the sensor
+    xQueueSend(structQueue, &tempSensor, portMAX_DELAY); // update the structure with this data 
   }
   taskYIELD();
 }
 
+// Task 2 : Change the LED that glows based on the tempertaure 
 void ledColourChange(void *pvParameters)
 {
   (void)pvParameters;
@@ -76,10 +80,13 @@ void ledColourChange(void *pvParameters)
     if (xQueueReceive(structQueue, &readValue, portMAX_DELAY) == pdPASS)
     {
       tempVoltage = readValue.data * 3.22;
-      tempValue = -((tempVoltage - offetVoltage));
+      tempValue = offetVoltage - tempVoltage;
+      
       Serial.println(tempValue);
+
       if (tempValue > goodTemp)
       {
+        /* If the temperature exeeds the required constaant temperature turn the led to red */
         digitalWrite(RED_PIN, HIGH);
         digitalWrite(BLUE_PIN, LOW);
 
@@ -87,8 +94,10 @@ void ledColourChange(void *pvParameters)
       }
       else
       {
+        // The temperature is under the required minimum value keep the blue led on
         digitalWrite(BLUE_PIN, HIGH);
         digitalWrite(RED_PIN, LOW);
+
         delay(1000);
       }
     }
